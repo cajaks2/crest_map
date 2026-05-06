@@ -190,7 +190,7 @@ m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
 
 # CSS + controls position + label styling (label not inside control, so no clipping)
 embed_description = (
-    "Interactive map of Angeles Forest crash reports with year, incident, and vehicle filters."
+    "Interactive map of Angeles Forest crash reports with tappable crash markers and year, incident, and vehicle filters."
 )
 m.get_root().header.add_child(folium.Element(f"""
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
@@ -382,7 +382,7 @@ font-family:system-ui;font-size:12px;max-width:360px;box-shadow:0 2px 6px rgba(0
 <button onclick="document.getElementById('about-panel').style.display='none';"
 style="position:absolute;top:6px;right:6px;border:none;background:none;font-size:16px;font-weight:700;cursor:pointer;">×</button>
 <b>About this map</b><br><br>
-Use the year selector (top-right) to toggle years. Selector in bottum left, legend counts update automatically. You can select type of vehicle as well as type of incident. You can also add a text filter for any field, multiple queries can be done if seperated by a semicolon. EG: crest;motorcylce. Fatal is a keyword to search for fatalities.
+Tap or click any dot to open the crash details. Use the year selector in the top right to show or hide years. Open Search/Filters in the bottom left to filter by vehicle type, incident type, or text. Separate multiple search terms with semicolons, such as crest;motorcycle. Search fatal to show fatal crashes.
 <br><br>
 <b>Fatal crashes</b> (NumberKilled &gt; 0) are shown with an <b>× overlay</b>.
 </div>
@@ -402,12 +402,12 @@ Use the year selector (top-right) to toggle years. Selector in bottum left, lege
  overflow: auto;
 ">
 <div id="legend-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-  <div style="font-weight:700; font-size:13px;">Search/Guide</div>
+  <div style="font-weight:700; font-size:13px;">Search/Filters</div>
   <button id="legend-collapse" style="border:1px solid #cfcfcf;background:#fff;border-radius:8px;padding:2px 6px;font-size:11px;font-weight:700;cursor:pointer;">Show</button>
 </div>
   <div id="legend-sub" style="font-size:11px; color:#555; margin-bottom:8px;"></div>
   <div id="legend-search" style="display:flex;gap:6px;align-items:center;margin:6px 0 8px 0;">
-    <input id="legend-search-input" type="text" placeholder="Example: thursday or motorcyle or fatal;crest." style="flex:1;border:1px solid #cfcfcf;border-radius:8px;padding:4px 8px;font-size:11px;" />
+    <input id="legend-search-input" type="text" placeholder="Search roads, vehicles, days, violations, or fatal" style="flex:1;border:1px solid #cfcfcf;border-radius:8px;padding:4px 8px;font-size:11px;" />
     <button id="legend-search-clear" class="mini-btn" type="button" style="min-width:auto;padding:2px 8px;">Clear</button>
   </div>
   <div id="legend-filters" style="display:flex;gap:10px;">
