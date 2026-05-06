@@ -550,12 +550,6 @@ m.get_root().html.add_child(folium.Element(f"""
     if (z>=12) return coarse ? 8 : 6;
     return coarse ? 7 : 5;
   }}
-  function hitR(z) {{
-    var coarse = isCoarsePointer();
-    if (z>=15) return coarse ? 24 : 16;
-    if (z>=13) return coarse ? 22 : 15;
-    return coarse ? 20 : 14;
-  }}
   var mapName="{m.get_name()}";
   var dataUrl="{data_file}";
   var groupVars={groups_json};
@@ -583,30 +577,16 @@ m.get_root().html.add_child(folium.Element(f"""
       fillOpacity: 0.80,
       weight: 2
     }});
-    var h = L.circleMarker([item.lat, item.lon], {{
-      radius: hitR(getMap() && getMap().getZoom ? getMap().getZoom() : 10),
-      color: "#000",
-      opacity: 0,
-      fill: true,
-      fillColor: "#000",
-      fillOpacity: 0,
-      weight: 0
-    }});
     var popupHtml = buildPopup(item.data);
     if (popupHtml) m.bindPopup(popupHtml, {{maxWidth: 360}});
-    if (popupHtml) h.bindPopup(popupHtml, {{maxWidth: 360}});
     var tooltip = "";
     var collisionId = "";
     if (item.data && item.data.collision_id) collisionId = String(item.data.collision_id);
     if (collisionId) tooltip = collisionId + " | " + ctype;
     if (tooltip) m.bindTooltip(tooltip);
-    if (tooltip) h.bindTooltip(tooltip);
     m.options._incidentType = ctype;
     m.options._collisionId = collisionId;
-    h.options._incidentType = ctype;
-    h.options._collisionId = collisionId;
     if (collisionId) markerById[collisionId] = m;
-    h.addTo(g);
     m.addTo(g);
 
     var f = null;
@@ -625,7 +605,7 @@ m.get_root().html.add_child(folium.Element(f"""
       f.options._collisionId = collisionId;
       f.addTo(g);
     }}
-    allMarkers.push({{m:m, h:h, f:f, t: ctype, g:g, v: item.veh || [], s: item.search || "", r: m.getRadius ? m.getRadius() : null, hidden:false}});
+    allMarkers.push({{m:m, f:f, t: ctype, g:g, v: item.veh || [], s: item.search || "", r: m.getRadius ? m.getRadius() : null, hidden:false}});
   }}
 
   function escHtml(s) {{
@@ -797,17 +777,14 @@ m.get_root().html.add_child(folium.Element(f"""
     var map = getMap();
     if (!map) return;
     var R = r(map.getZoom());
-    var HR = hitR(map.getZoom());
     allMarkers.forEach(function(o){{
       if(!o.m || !o.m.setRadius) return;
       if(o.hidden) {{
         o.m.setRadius(0);
-        if (o.h && o.h.setRadius) o.h.setRadius(0);
         return;
       }}
       o.r = R;
       o.m.setRadius(R);
-      if (o.h && o.h.setRadius) o.h.setRadius(HR);
     }});
   }}
 
@@ -900,6 +877,36 @@ m.get_root().html.add_child(folium.Element(f"""
     return years;
   }}
 
+  function setYearsParam(yrs){{
+    var url = new URL(window.location.href);
+    if (yrs && yrs.length) url.searchParams.set("years", yrs.join(","));
+    else url.searchParams.delete("years");
+    window.history.replaceState({{}}, "", url.toString());
+  }}
+
+  function yearsFromUrl(){{
+    var url = new URL(window.location.href);
+    var raw = url.searchParams.get("years") || "";
+    return raw.split(",").map(function(y){{ return y.trim(); }}).filter(function(y){{ return !!perYear[y]; }});
+  }}
+
+  function applyYearsFromUrl(){{
+    var yrs = yearsFromUrl();
+    if (!yrs.length) return false;
+    var wanted = {{}};
+    yrs.forEach(function(y){{ wanted[y] = true; }});
+    document.querySelectorAll('.leaflet-control-layers-overlays label').forEach(function(lbl){{
+      var cb = lbl.querySelector('input[type="checkbox"]');
+      var nameEl = lbl.querySelector('span');
+      if(!cb || !nameEl) return;
+      var name = nameEl.textContent.trim();
+      if(!perYear[name]) return;
+      var shouldCheck = !!wanted[name];
+      if(cb.checked !== shouldCheck) cb.click();
+    }});
+    return true;
+  }}
+
   function sumCounts(yrs){{
     var types = {{}};
     var fatal = 0;
@@ -923,7 +930,7 @@ m.get_root().html.add_child(folium.Element(f"""
     if(!sub || !body) return;
 
     var label = yrs.length ? yrs.join(', ') : 'None';
-    sub.innerHTML = "Showing years: <b>"+esc(label)+"</b> • Total Incidents On Screen: <b id='legend-total'>"+agg.total+"</b>";
+    sub.innerHTML = "Showing years: <b>"+esc(label)+"</b> • Matching incidents: <b id='legend-total'>"+agg.total+"</b>";
 
     var lines = [
       "<div class='section-head'>",
@@ -1122,14 +1129,10 @@ m.get_root().html.add_child(folium.Element(f"""
     var visibleCount = 0;
     var visibleFatal = 0;
 
-    var bounds = (map && map.getBounds) ? map.getBounds() : null;
     markers.forEach(function(o){{
       var cat = categoryForType(o.t || "Unknown");
       var show = !!selectedCats[cat];
       if (map && o.g && map.hasLayer && !map.hasLayer(o.g)) {{
-        show = false;
-      }}
-      if (show && bounds && o.m && o.m.getLatLng && !bounds.contains(o.m.getLatLng())) {{
         show = false;
       }}
       if (show && terms.length) {{
@@ -1156,21 +1159,17 @@ m.get_root().html.add_child(folium.Element(f"""
       o.hidden = !show;
       if (g && g.hasLayer) {{
         if (show) {{
-          if (o.h && !g.hasLayer(o.h)) showLayer(o.h, g);
           if (!g.hasLayer(o.m)) showLayer(o.m, g);
           if (o.f && !g.hasLayer(o.f)) showLayer(o.f, g);
         }} else {{
-          if (o.h && g.hasLayer(o.h)) hideLayer(o.h, g);
           if (g.hasLayer(o.m)) hideLayer(o.m, g);
           if (o.f && g.hasLayer(o.f)) hideLayer(o.f, g);
         }}
       }} else {{
         if (show) {{
-          showLayer(o.h, g);
           showLayer(o.m, g);
           showLayer(o.f, g);
         }} else {{
-          hideLayer(o.h, g);
           hideLayer(o.m, g);
           hideLayer(o.f, g);
         }}
@@ -1182,10 +1181,8 @@ m.get_root().html.add_child(folium.Element(f"""
         if (show) {{
           var r = (o.r !== null && typeof o.r !== "undefined") ? o.r : 6;
           o.m.setRadius(r);
-          if (o.h && o.h.setRadius) o.h.setRadius(hitR(map && map.getZoom ? map.getZoom() : 10));
         }} else {{
           o.m.setRadius(0);
-          if (o.h && o.h.setRadius) o.h.setRadius(0);
         }}
       }}
       if (o.f && o.f.setOpacity) {{
@@ -1241,6 +1238,7 @@ m.get_root().html.add_child(folium.Element(f"""
       }}
     }});
     setTimeout(renderLegend, 50);
+    setTimeout(function(){{ setYearsParam(selectedYears()); }}, 60);
   }}
 
   function ensureButtonsOnce(){{
@@ -1281,9 +1279,16 @@ m.get_root().html.add_child(folium.Element(f"""
 
     // Hook legend updates
     control.querySelectorAll('.leaflet-control-layers-overlays input[type=\"checkbox\"]').forEach(function(cb){{
-      cb.addEventListener('change', function(){{ setTimeout(renderLegend, 0); }});
+      cb.addEventListener('change', function(){{
+        setTimeout(renderLegend, 0);
+        setTimeout(function(){{ setYearsParam(selectedYears()); }}, 0);
+      }});
     }});
 
+    if(!control.dataset.urlYearsApplied){{
+      control.dataset.urlYearsApplied = "1";
+      applyYearsFromUrl();
+    }}
     renderLegend();
     return true;
   }}
