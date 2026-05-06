@@ -56,7 +56,7 @@ def load_input(path):
     df_local.columns = [c.strip() if isinstance(c, str) else c for c in df_local.columns]
     return df_local
 
-raw = load_input("ccrs_parties_crashes_roads_2016-2025.csv")
+raw = load_input("ccrs_parties_crashes_roads_2016-2026.csv")
 df = raw.copy()
 field_names = df.columns.tolist()
 
@@ -446,6 +446,7 @@ summary_fields = [
     ("SecondaryRoad","Secondary Road"),
     ("City Name","City"),
     ("Collision Type Description","Collision Type"),
+    ("Primary Collision Factor Violation","Violation"),
     ("NumberInjured","Injured"),
     ("NumberKilled","Killed"),
     ("HitRun","Hit & Run"),
@@ -480,7 +481,7 @@ def build_search_text(row):
         "MotorVehicleInvolvedWithDesc",
         "MotorVehicleInvolvedWithOtherDesc",
         "Day Of Week",
-        "Year"
+        "Year",
         "Primary Collision Factor Violation",
     ]:
         v = fields.get(c, "")
