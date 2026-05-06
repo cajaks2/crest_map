@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir pandas folium numpy
 
 COPY . .
 
-CMD ["sh", "-c", "rm -f last_run.json && python pull_data.py --use-dump && python generate_map.py"]
+CMD ["sh", "-c", "python pull_data.py --use-dump && python generate_map.py"]

@@ -541,7 +541,21 @@ groups_json = json.dumps(year_group_vars)
 m.get_root().html.add_child(folium.Element(f"""
 <script>
 (function() {{
-  function r(z) {{ return z>=15?10:z>=14?8:z>=13?7:z>=12?6:5; }}
+  function isCoarsePointer() {{ return window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }}
+  function r(z) {{
+    var coarse = isCoarsePointer();
+    if (z>=15) return coarse ? 12 : 10;
+    if (z>=14) return coarse ? 10 : 8;
+    if (z>=13) return coarse ? 9 : 7;
+    if (z>=12) return coarse ? 8 : 6;
+    return coarse ? 7 : 5;
+  }}
+  function hitR(z) {{
+    var coarse = isCoarsePointer();
+    if (z>=15) return coarse ? 24 : 16;
+    if (z>=13) return coarse ? 22 : 15;
+    return coarse ? 20 : 14;
+  }}
   var mapName="{m.get_name()}";
   var dataUrl="{data_file}";
   var groupVars={groups_json};
@@ -569,16 +583,30 @@ m.get_root().html.add_child(folium.Element(f"""
       fillOpacity: 0.80,
       weight: 2
     }});
+    var h = L.circleMarker([item.lat, item.lon], {{
+      radius: hitR(getMap() && getMap().getZoom ? getMap().getZoom() : 10),
+      color: "#000",
+      opacity: 0,
+      fill: true,
+      fillColor: "#000",
+      fillOpacity: 0,
+      weight: 0
+    }});
     var popupHtml = buildPopup(item.data);
     if (popupHtml) m.bindPopup(popupHtml, {{maxWidth: 360}});
+    if (popupHtml) h.bindPopup(popupHtml, {{maxWidth: 360}});
     var tooltip = "";
     var collisionId = "";
     if (item.data && item.data.collision_id) collisionId = String(item.data.collision_id);
     if (collisionId) tooltip = collisionId + " | " + ctype;
     if (tooltip) m.bindTooltip(tooltip);
+    if (tooltip) h.bindTooltip(tooltip);
     m.options._incidentType = ctype;
     m.options._collisionId = collisionId;
+    h.options._incidentType = ctype;
+    h.options._collisionId = collisionId;
     if (collisionId) markerById[collisionId] = m;
+    h.addTo(g);
     m.addTo(g);
 
     var f = null;
@@ -597,7 +625,7 @@ m.get_root().html.add_child(folium.Element(f"""
       f.options._collisionId = collisionId;
       f.addTo(g);
     }}
-    allMarkers.push({{m:m, f:f, t: ctype, g:g, v: item.veh || [], s: item.search || "", r: m.getRadius ? m.getRadius() : null, hidden:false}});
+    allMarkers.push({{m:m, h:h, f:f, t: ctype, g:g, v: item.veh || [], s: item.search || "", r: m.getRadius ? m.getRadius() : null, hidden:false}});
   }}
 
   function escHtml(s) {{
@@ -769,11 +797,17 @@ m.get_root().html.add_child(folium.Element(f"""
     var map = getMap();
     if (!map) return;
     var R = r(map.getZoom());
+    var HR = hitR(map.getZoom());
     allMarkers.forEach(function(o){{
       if(!o.m || !o.m.setRadius) return;
-      if(o.hidden) {{ o.m.setRadius(0); return; }}
+      if(o.hidden) {{
+        o.m.setRadius(0);
+        if (o.h && o.h.setRadius) o.h.setRadius(0);
+        return;
+      }}
       o.r = R;
       o.m.setRadius(R);
+      if (o.h && o.h.setRadius) o.h.setRadius(HR);
     }});
   }}
 
@@ -1122,17 +1156,21 @@ m.get_root().html.add_child(folium.Element(f"""
       o.hidden = !show;
       if (g && g.hasLayer) {{
         if (show) {{
+          if (o.h && !g.hasLayer(o.h)) showLayer(o.h, g);
           if (!g.hasLayer(o.m)) showLayer(o.m, g);
           if (o.f && !g.hasLayer(o.f)) showLayer(o.f, g);
         }} else {{
+          if (o.h && g.hasLayer(o.h)) hideLayer(o.h, g);
           if (g.hasLayer(o.m)) hideLayer(o.m, g);
           if (o.f && g.hasLayer(o.f)) hideLayer(o.f, g);
         }}
       }} else {{
         if (show) {{
+          showLayer(o.h, g);
           showLayer(o.m, g);
           showLayer(o.f, g);
         }} else {{
+          hideLayer(o.h, g);
           hideLayer(o.m, g);
           hideLayer(o.f, g);
         }}
@@ -1144,8 +1182,10 @@ m.get_root().html.add_child(folium.Element(f"""
         if (show) {{
           var r = (o.r !== null && typeof o.r !== "undefined") ? o.r : 6;
           o.m.setRadius(r);
+          if (o.h && o.h.setRadius) o.h.setRadius(hitR(map && map.getZoom ? map.getZoom() : 10));
         }} else {{
           o.m.setRadius(0);
+          if (o.h && o.h.setRadius) o.h.setRadius(0);
         }}
       }}
       if (o.f && o.f.setOpacity) {{
